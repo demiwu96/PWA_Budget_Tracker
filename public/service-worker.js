@@ -2,8 +2,7 @@ const FILES_TO_CACHE = [
     "/",
     "/index.html",
     "/styles.css",
-    "/dist/index.bundle.js",
-    "/dist/indexedDB.bundle.js"
+    "/js/index.js",
 ];
 
 const PRECACHE = "precache-v1";
@@ -19,34 +18,100 @@ self.addEventListener("install", event => {
 
 // The activate handler takes care of cleaning up old caches.
 self.addEventListener("activate", event => {
-    const currentCaches = [PRECACHE, RUNTIME];
+    // const currentCaches = [PRECACHE, RUNTIME];
     event.waitUntil(
-        caches.keys().then(cacheNames => {
-            return cacheNames.filter(cacheName => !currentCaches.includes(cacheName));
-        }).then(cachesToDelete => {
-            return Promise.all(cachesToDelete.map(cacheToDelete => {
-                return caches.delete(cacheToDelete);
-            }));
-        }).then(() => self.clients.claim())
+        createIndexedDB()
     );
 });
 
 self.addEventListener("fetch", event => {
-    if (event.request.url.startsWith(self.location.origin)) {
-        event.respondWith(
-            caches.match(event.request).then(cachedResponse => {
-                if (cachedResponse) {
-                    return cachedResponse;
+    if (!navigator.onLine) {
+        console.log("Connected to indexedDB!");
+        if (event.request.method == "POST") {
+            event.request.json().then(res => {
+                const request = self.indexedDB.open("budget");
+                request.onsuccess = function (event) {
+                    let db = event.target.result;
+                    // create a transaction
+                    const transaction = db.transaction(["items"], "readwrite");
+                    // access object store
+                    const store = transaction.objectStore("items");
+                    // add record to store with add method.
+                    const requestAdd = store.add(res);
+
+                    requestAdd.onsuccess = function (e) {
+                        console.log("added!");
+                        return;
+                    }
                 }
 
-                return caches.open(RUNTIME).then(cache => {
-                    return fetch(event.request).then(response => {
-                        return cache.put(event.request, response.clone()).then(() => {
-                            return response;
-                        });
-                    });
-                });
+
+            });
+        }
+        event.respondWith(
+            caches.match(event.request).then(function (response) {
+                return response || fetch(event.request);
             })
         );
+    } else {
+        console.log("Processing...")
+        processIndexedDBData();
     }
+
 });
+
+function createIndexedDB() {
+    const request = self.indexedDB.open("budget", 1);
+    request.onupgradeneeded = function (event) {
+        const db = event.target.result;
+        const store = db.createObjectStore("items", { autoIncrement: true });
+    };
+
+    request.onsuccess = function (event) {
+        db = event.target.result;
+        console.log(db);
+    };
+
+    request.onerror = function (event) {
+        console.log("Woops! " + event.target.errorCode);
+    };
+}
+
+function processIndexedDBData() {
+    const request = self.indexedDB.open("budget");
+    request.onsuccess = function (e) {
+        // Succesfully opened, now grab data from there and console log it 
+        const db = request.result;
+        const transaction = db.transaction(["items"], "readwrite");
+        const store = transaction.objectStore("items");
+
+        const getAll = store.getAll();
+
+        getAll.onsuccess = async function (e) {
+            let offlineData = getAll.result;
+
+            if(offlineData){
+                const response = await fetch("/api/transaction/bulk", {
+                    method: "POST",
+                    body: JSON.stringify(offlineData),
+                    headers: {
+                      Accept: "application/json, text/plain, */*",
+                      "Content-Type": "application/json"
+                    }
+                });
+
+                // At this point, we need to open a second transaction in order to delete all offline data
+                const transaction2 = db.transaction(["items"], "readwrite");
+                const objectStore = transaction2.objectStore("items");
+                // Now delete all the data in IndexedDB :) 
+                const deleteReq = objectStore.clear();
+
+                deleteReq.onsuccess = function(e){
+                    console.log("Clear!");
+                }
+            }
+          
+        }
+
+    };
+};
