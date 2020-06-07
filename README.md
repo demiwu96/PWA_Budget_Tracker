@@ -25,4 +25,4 @@ npm install
 Yu-Hsuan Wu
 
 ## Demo
-[Click here](https://budgettracker-052020.herokuapp.com/) to see my project
+[Click here](https://budget-tracker-pwa-052020.herokuapp.com/) to see my project
