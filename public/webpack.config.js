@@ -3,7 +3,8 @@ const path = require("path");
 
 const config = {
     entry: {
-        index: "./index.js"
+        index: "./js/index.js",
+        indexedDB: "./js/indexedDB.js"
     },
     output: {
         path: __dirname + "/dist",

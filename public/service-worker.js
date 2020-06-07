@@ -3,6 +3,7 @@ const FILES_TO_CACHE = [
     "/index.html",
     "/styles.css",
     "/dist/index.bundle.js",
+    "/dist/indexedDB.bundle.js"
 ];
 
 const PRECACHE = "precache-v1";
