@@ -1,4 +1,4 @@
-# PWA_Budget_Tracker
+# PWA Budget Tracker
 
 ## Description
 A simple app for tracking expenses and budgets. The user can enter the items and prices when the app is offline and the information will be updated once the app is back online again.
